@@ -1,0 +1,141 @@
+#!/bin/bash
+
+umask 077
+
+. /etc/vmdefaults.conf
+. /usr/local/lib/vmfunctions.sh
+
+################################################################################
+# check parameters
+
+if [ -z "$1" ]; then
+	err_usage "$0"
+	exit -1
+fi
+
+CMD=$1
+shift
+
+if [ "${CMD}" != "list" ]; then
+	if [ -z "$1" ]; then
+		err_usage "$0"
+		exit -1
+	fi
+
+	VM_NAME="$1"
+	shift
+
+	# check vm
+	vm_check "${VM_NAME}" || {
+		err_vm "${VM_NAME}" "$?"
+		exit -2
+	}
+fi
+
+################################################################################
+# subroutines
+
+case "${CMD}" in
+list)
+	for i in "${IMAGE_BASEPATH}"/*; do
+		VM_NAME=$(basename $i)
+
+		unset VM_RAM
+		unset VM_CPUS
+
+		. $i/vm.conf
+
+		if vm_isrunning ${VM_NAME}; then
+			echo "up   ${VM_NAME} - RAM: ${VM_RAM} - CPUs: ${VM_CPUS}"
+		else
+			echo "down ${VM_NAME} - RAM: ${VM_RAM} - CPUs: ${VM_CPUS}"
+		fi
+	done
+	exit 0
+	;;
+up)
+	. "${IMAGE_BASEPATH}/${VM_NAME}/vm.conf"
+
+	if vm_isrunning ${VM_NAME}; then
+		err_vm "${VM_NAME}" ${ERR_VMALREADYRUNNING}
+		exit ${ERR_VMALREADYRUNNING}
+	fi
+
+	VM_PARAM="$(vm_buildparam)"
+
+	vm_up $@ $VM_PARAM
+
+	exit 0
+	;;
+esac
+
+
+if [ -f "${IMAGE_BASEPATH}/${VM_NAME}/vm.conf.running" ]; then
+	. "${IMAGE_BASEPATH}/${VM_NAME}/vm.conf.running"
+else
+	. "${IMAGE_BASEPATH}/${VM_NAME}/vm.conf"
+fi
+
+if ! vm_isrunning ${VM_NAME}; then
+	err_vm "${VM_NAME}" ${ERR_VMNOTRUNNING}
+	exit ${ERR_VMNOTRUNNING}
+fi
+
+case "${CMD}" in
+down)
+	vm_down $@ $VM_PARAM
+	exit 0
+	;;
+reset)
+	vm_reset $@ $VM_PARAM
+	exit 0
+	;;
+reboot)
+	vm_reboot $@ $VM_PARAM
+	exit 0
+	;;
+pause)
+	vm_pause $@ $VM_PARAM
+	exit 0
+	;;
+resume)
+	vm_resume $@ $VM_PARAM
+	exit 0
+	;;
+wait)
+	vm_wait $@ $VM_PARAM
+	exit 0
+	;;
+console)
+	vm_console $@ $VM_PARAM
+	exit 0
+	;;
+listsnap)
+	vm_listsnap $@ $VM_PARAM
+	exit 0
+	;;
+esac
+
+if [ -z "$1" ]; then
+	err_usage $0
+	exit -1
+fi
+SNAPTAG="$1"
+shift
+
+case "${CMD}" in
+addsnap)
+	vm_addsnap $@ $VM_PARAM
+	;;
+delsnap)
+	vm_delsnap $@ $VM_PARAM
+	;;
+runsnap)
+	vm_runsnap $@ $VM_PARAM
+	;;
+*)
+	err_usage $0
+	exit -1
+esac
+
+exit 0
