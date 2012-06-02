@@ -1,0 +1,39 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          vms
+# Required-Start:    $local_fs $all kvm
+# Required-Stop:
+# Default-Start:     2
+# Default-Stop:
+# Short-Description: executed by init(8) upon entering runlevel 1 (single).
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/local/bin:/usr/bin:/usr/sbin
+
+. /etc/vmdefaults.conf
+
+case "$1" in
+  start)
+	for vm in ${VM_AUTOSTART}; do
+		echo -n "${vm} "
+		vm up "${vm}" &>/dev/null
+	done
+	echo
+	;;
+  restart|reload|force-reload)
+	echo "Error: argument '$1' not supported" >&2
+	exit 3
+	;;
+  stop)
+	vm list | grep -E "^up" | awk '{ print($2); }' | \
+	while read vm; do
+		vm down ${vm} &>/dev/null
+		vm wait ${vm}
+	done
+	echo
+	;;
+  *)
+	echo "Usage: $0 start|stop" >&2
+	exit 3
+	;;
+esac
